@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Besh Express — Водитель</title>
+<style>
+:root{--bg:#F3F5F9;--card:#fff;--navy:#0B2A5B;--green:#22C55E;--txt:#111827;--mut:#6B7280;--line:#DDE2EC;--gray:#E5E7EB;--red:#FEE2E2;--btnt:#052e16;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1420;--card:#18202F;--navy:#9DB8F0;--txt:#E8ECF4;--mut:#9AA4B5;--line:#2A3447;--gray:#2A3447;--red:#4A2326;}}
+:root[data-theme="dark"]{--bg:#0E1420;--card:#18202F;--navy:#9DB8F0;--txt:#E8ECF4;--mut:#9AA4B5;--line:#2A3447;--gray:#2A3447;--red:#4A2326}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--txt);font:15px/1.4 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+#root{max-width:480px;margin:0 auto;min-height:100%}
+.screen{padding:20px 20px 90px}
+.logo{font-size:32px;font-weight:700;color:var(--navy);margin:0}.logo b{color:var(--green)}
+.sub{color:var(--mut);margin-bottom:20px}
+.demo{background:#FEF3C7;color:#78350F;font-size:12px;text-align:center;padding:4px;border-radius:8px;margin-bottom:12px}
+h2{font-size:18px;color:var(--navy);margin:0 0 6px}
+p{margin:2px 0}.b{font-weight:700}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;align-items:center}
+input{width:100%;background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;margin-bottom:10px}
+.btn{display:block;width:100%;background:var(--green);color:var(--btnt);border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700;margin-top:10px;cursor:pointer}
+.btn.s{background:var(--gray);color:var(--navy)}.btn.d{background:var(--red);color:var(--navy)}.btn:disabled{opacity:.5}
+.tabs{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 6px)}
+.tab{flex:1;padding:12px;text-align:center;color:var(--mut);font-weight:700;font-size:13px;background:none;border:0;cursor:pointer}.tab.on{color:var(--green)}
+.center{display:flex;align-items:center;justify-content:center;height:100vh}
+.spin{width:32px;height:32px;border:4px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:r 1s linear infinite}@keyframes r{to{transform:rotate(360deg)}}
+.sw{position:relative;width:48px;height:28px;flex:none}.sw input{opacity:0;position:absolute;inset:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.sw i{position:absolute;inset:0;background:var(--gray);border-radius:14px;transition:.2s}.sw i:after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked+i{background:var(--green)}.sw input:checked+i:after{left:23px}
+.cen{text-align:center;margin-top:20px}
+.map{width:100%;height:auto;border-radius:12px;display:block;margin:8px 0}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+const {useEffect,useState,useCallback}=React;
+const html=htm.bind(React.createElement);
+const fmt=n=>Number(n||0).toLocaleString('ru-RU')+' сум';
+const iso=d=>new Date(d).toISOString();
+
+/* ---------- ДЕМО-БЭКЕНД (замена Supabase, данные только в памяти) ---------- */
+const db={
+ drivers:[{id:'u1',status:'approved',is_online:false,car_model:'Chevrolet Cobalt',car_color:'Белый',plate:'01 A 123 AA',license_no:'AB1234567',pinfl:null,license_card_no:'LC-001',license_card_expiry:'2027-05-01',rating:4.9}],
+ wallets:[{user_id:'u1',balance:50000,bonus_balance:20000}],
+ orders:[
+  {id:'o1',status:'new',driver_id:null,pickup_address:'ул. Навои, 12',dropoff_address:'Аэропорт Ташкент',distance_km:14.2,price:45000,commission:0},
+  {id:'c1',status:'completed',driver_id:'u1',pickup_address:'Чиланзар',dropoff_address:'Мирабад',distance_km:6.1,price:22000,commission:1760,completed_at:iso(Date.now()-3600e3)},
+  {id:'c2',status:'completed',driver_id:'u1',pickup_address:'Юнусабад',dropoff_address:'Чорсу',distance_km:9.4,price:30000,commission:2400,completed_at:iso(Date.now()-86400e3*2)}],
+ order_offers:[],
+ settings:[{key:'commission_percent',value:8}],
+ profiles:[{id:'u1',full_name:'Демо Водитель'}],
+ wallet_transactions:[{id:1,user_id:'u1',type:'signup_bonus',amount:20000,created_at:iso(Date.now()-86400e3*5)},{id:2,user_id:'u1',type:'commission',amount:-1760,created_at:iso(Date.now()-3600e3)}]
+};
+const offer=()=>{const o=db.orders.find(x=>x.status==='new');const d=db.drivers[0];
+ if(o&&d&&d.is_online&&!db.order_offers.length)db.order_offers=[{order_id:o.id,driver_id:'u1',status:'pending',expires_at:iso(Date.now()+45000)}];};
+let ses=null,subs=[],seen=false;
+const emit=()=>subs.forEach(f=>f('E',ses));
+const SB={
+ auth:{
+  getSession:async()=>({data:{session:ses}}),
+  onAuthStateChange(f){subs.push(f);return{data:{subscription:{unsubscribe(){subs=subs.filter(x=>x!==f)}}}}},
+  signInWithPassword:async()=>{ses={user:{id:'u1'}};emit();return{data:{session:ses},error:null}},
+  signUp:async()=>{db.drivers=[];seen=false;ses={user:{id:'u1'}};emit();return{data:{session:ses},error:null}},
+  signOut:async()=>{if(db.drivers[0])db.drivers[0].is_online=false;db.order_offers=[];ses=null;emit()}
+ },
+ from(t){const q={f:[],mode:'sel',lim:99,single:false,patch:null,row:null};
+  const api={select(){return api},eq(c,v){q.f.push([c,v,0]);return api},in(c,v){q.f.push([c,v,1]);return api},gt(){return api},order(){return api},
+   limit(n){q.lim=n;return api},maybeSingle(){q.single=true;return api},update(p){q.mode='upd';q.patch=p;return api},insert(r){q.mode='ins';q.row=r;return api},
+   then(res,rej){return Promise.resolve(run()).then(res,rej)}};
+  const run=()=>{const rows=db[t]||[];const m=rows.filter(r=>q.f.every(([c,v,i])=>i?v.includes(r[c]):r[c]===v));
+   if(q.mode==='ins'){db[t].push(t==='drivers'?{status:'pending',is_online:false,rating:5,...q.row}:q.row);return{error:null}}
+   if(q.mode==='upd'){m.forEach(r=>Object.assign(r,q.patch));
+    if(t==='drivers'&&'is_online' in q.patch){db.order_offers=[];offer()}return{error:null}}
+   if(t==='drivers'&&m[0]&&m[0].status==='pending'){if(seen)m[0].status='approved';seen=true}
+   return{data:q.single?(m[0]||null):m.slice(0,q.lim),error:null}};
+  return api},
+ async rpc(fn,a){const o=db.orders.find(x=>x.id===a.p_order);if(!o)return{error:{message:'Заказ не найден'}};
+  if(fn==='accept_order'){o.status='accepted';o.driver_id='u1';db.order_offers=[]}
+  if(fn==='decline_order'){db.order_offers=[];setTimeout(offer,8000)}
+  if(fn==='driver_update_status')o.status=a.p_status;
+  if(fn==='complete_order'){o.status='completed';o.completed_at=iso(Date.now());o.commission=Math.round(o.price*.08);
+   db.wallets[0].balance-=o.commission;db.wallet_transactions.unshift({id:Date.now(),user_id:'u1',type:'commission',amount:-o.commission,created_at:iso(Date.now())});
+   db.orders.push({...o,id:'o'+Date.now(),status:'new',driver_id:null,completed_at:null,commission:0});setTimeout(offer,8000)}
+  return{error:null}}
+};
+/* ---------- ПРИЛОЖЕНИЕ ---------- */
+const Btn=({t,onPress,kind='',disabled})=>html`<button class=${'btn '+kind} disabled=${disabled} onClick=${onPress}>${t}</button>`;
+const Field=p=>html`<input autocapitalize=${p.autoCapitalize||'none'} ...${p}/>`;
+const Screen=({children})=>html`<div class="screen"><div class="demo">ДЕМО-режим: данные тестовые, сервер не подключён</div>
+ <h1 class="logo">Besh <b>Express</b></h1><div class="sub">Водитель</div>${children}</div>`;
+const Spin=()=>html`<div class="center"><div class="spin"></div></div>`;
+
+function Auth(){
+ const [m,setM]=useState('login'),[e,setE]=useState(''),[p,setP]=useState(''),[n,setN]=useState(''),[b,setB]=useState(false);
+ const go=async()=>{setB(true);
+  const r=m==='login'?await SB.auth.signInWithPassword({email:e.trim(),password:p}):await SB.auth.signUp({email:e.trim(),password:p,options:{data:{role:'driver',full_name:n}}});
+  setB(false);if(r.error)alert('Ошибка: '+r.error.message)};
+ return html`<${Screen}>
+  ${m==='register'&&html`<${Field} placeholder="Имя и фамилия" value=${n} onInput=${x=>setN(x.target.value)} autocapitalize="words"/>`}
+  <${Field} placeholder="Почта" type="email" value=${e} onInput=${x=>setE(x.target.value)}/>
+  <${Field} placeholder="Пароль (от 6 символов)" type="password" value=${p} onInput=${x=>setP(x.target.value)}/>
+  <${Btn} t=${m==='login'?'Войти':'Зарегистрироваться'} onPress=${go} disabled=${b}/>
+  <${Btn} kind="s" t=${m==='login'?'Нет аккаунта? Регистрация':'Уже есть аккаунт? Войти'} onPress=${()=>setM(m==='login'?'register':'login')}/>
+ <//>`;
+}
+const FIELDS=[['car_model','Марка и модель *'],['car_color','Цвет *'],['plate','Госномер *'],['license_no','Номер прав *'],['pinfl','ПИНФЛ'],
+ ['license_card_no','Лицензионная карточка (номер)'],['license_card_expiry','Карточка до (ГГГГ-ММ-ДД)'],['tech_passport_no','Техпаспорт (номер)']];
+function CarForm({uid,onDone}){
+ const [f,setF]=useState({});
+ const send=async()=>{
+  for(const k of ['car_model','car_color','plate','license_no'])if(!f[k])return alert('Заполните поля со звёздочкой');
+  const row={id:uid,is_self_employed:false};FIELDS.forEach(([k])=>row[k]=f[k]?f[k].trim():null);
+  const {error}=await SB.from('drivers').insert(row);if(error)return alert('Ошибка: '+error.message);onDone()};
+ return html`<${Screen}><h2>Данные водителя и автомобиля</h2>
+  ${FIELDS.map(([k,l])=>html`<${Field} key=${k} placeholder=${l} value=${f[k]||''} onInput=${x=>setF({...f,[k]:x.target.value})}/>`)}
+  <${Btn} t="Отправить на проверку" onPress=${send}/><${Btn} kind="s" t="Выйти" onPress=${()=>SB.auth.signOut()}/><//>`;
+}
+function Pending({drv,reload}){
+ const bl=drv.status==='blocked';
+ return html`<${Screen}><div class="card"><h2>${bl?'Доступ закрыт':'Заявка на проверке'}</h2>
+  <p>${bl?'Обратитесь в поддержку Besh Express.':'Администратор проверит ваши данные и одобрит аккаунт. После одобрения вы получите бонус.'}</p></div>
+  <${Btn} t="Проверить снова" onPress=${reload}/><${Btn} kind="s" t="Выйти" onPress=${()=>SB.auth.signOut()}/><//>`;
+}
+const NEXT={accepted:['arrived','Я приехал'],arrived:['in_progress','Начать поездку']};
+const Route=({o,pct})=>html`<div>
+ <p>Откуда: <span class="b">${o.pickup_address||'точка на карте'}</span></p>
+ <p>Куда: <span class="b">${o.dropoff_address||'точка на карте'}</span></p>
+ <p>${o.distance_km} км · Цена: <span class="b">${fmt(o.price)}</span></p>
+ <p>Комиссия ${pct}%: ${fmt(Math.round(o.price*pct/100))}</p></div>`;
+
+const PTS=[[60,200],[60,120],[170,120],[170,60],[290,60]];
+const MapView=({status})=>{
+ const pl=a=>a.map(p=>p.join(',')).join(' ');
+ const car=status==='in_progress'?[170,90]:status==='arrived'?[60,200]:status==='accepted'?[25,60]:null;
+ return html`<svg class="map" viewBox="0 0 320 240">
+  <rect width="320" height="240" fill="#E8EEF5"/>
+  <rect x="190" y="130" width="100" height="80" rx="8" fill="#CDE9D2"/>
+  <rect x="80" y="140" width="70" height="40" rx="6" fill="#D9DEE8"/>
+  <path d="M0 60H320M0 120H320M0 200H320M25 0V240M60 0V240M170 0V240M290 0V240" stroke="#fff" strokeWidth="10" fill="none"/>
+  <polyline points=${pl(PTS)} fill="none" stroke="#2563EB" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+  ${status==='accepted'&&html`<polyline points="25,60 25,200 60,200" fill="none" stroke="#2563EB" strokeWidth="3" strokeDasharray="6 6"/>`}
+  <circle cx="60" cy="200" r="9" fill="#22C55E" stroke="#fff" strokeWidth="3"/>
+  <rect x="283" y="53" width="14" height="14" fill="#0B2A5B" stroke="#fff" strokeWidth="3"/>
+  <text x="72" y="224" fontSize="12" fontWeight="700" fill="#0B2A5B">Клиент здесь</text>
+  <text x="228" y="46" fontSize="12" fontWeight="700" fill="#0B2A5B">Куда едем</text>
+  ${car&&html`<g><circle cx=${car[0]} cy=${car[1]} r="10" fill="#0B2A5B" stroke="#fff" strokeWidth="3"/><text x=${car[0]} y=${car[1]+4} fontSize="11" textAnchor="middle" fill="#fff">▲</text></g>`}
+ </svg>`;
+};
+function Main({uid,drv}){
+ const [online,setOnline]=useState(drv.is_online);
+ const [w,setW]=useState({balance:0,bonus_balance:0});
+ const [of,setOf]=useState(null),[act,setAct]=useState(null),[pct,setPct]=useState(8),[now,setNow]=useState(Date.now());
+ const refresh=useCallback(async()=>{
+  const [wr,off,ac]=await Promise.all([
+   SB.from('wallets').select('*').eq('user_id',uid).maybeSingle(),
+   SB.from('order_offers').select('order_id,expires_at').eq('driver_id',uid).eq('status','pending').gt('expires_at',iso(Date.now())).limit(1),
+   SB.from('orders').select('*').eq('driver_id',uid).in('status',['accepted','arrived','in_progress']).limit(1)]);
+  if(wr.data)setW({...wr.data});
+  const a=ac.data&&ac.data[0];setAct(a?{...a}:null);
+  if(!a&&off.data&&off.data[0]){const {data:o}=await SB.from('orders').select('*').eq('id',off.data[0].order_id).maybeSingle();
+   setOf(o?{o:{...o},exp:new Date(off.data[0].expires_at).getTime()}:null)}else setOf(null)},[uid]);
+ useEffect(()=>{
+  SB.from('settings').select('value').eq('key','commission_percent').maybeSingle().then(r=>r.data&&setPct(Number(r.data.value)));
+  refresh();const a=setInterval(refresh,2000),b=setInterval(()=>setNow(Date.now()),1000);
+  return()=>{clearInterval(a);clearInterval(b)}},[refresh]);
+ const toggle=async v=>{
+  if(v&&Number(w.balance)+Number(w.bonus_balance)<0)return alert('Пополните баланс: баланс ниже нуля.');
+  const {error}=await SB.from('drivers').update({is_online:v}).eq('id',uid);if(error)return alert('Ошибка: '+error.message);setOnline(v);refresh()};
+ const call=async(fn,args)=>{const {error}=await SB.rpc(fn,args);if(error)alert('Ошибка: '+error.message);refresh()};
+ return html`<${Screen}>
+  <div class="card"><div class="row"><h2>${online?'Вы на линии':'Вы офлайн'}</h2>
+   <label class="sw"><input type="checkbox" checked=${online} onChange=${e=>toggle(e.target.checked)}/><i></i></label></div>
+   <p>Баланс: <span class="b">${fmt(w.balance)}</span></p><p>Бонус: <span class="b">${fmt(w.bonus_balance)}</span></p></div>
+  ${act&&html`<div class="card" style=${{border:'2px solid var(--green)'}}><h2>Текущий заказ</h2><${MapView} status=${act.status}/><${Route} o=${act} pct=${pct}/>
+   <p style=${{marginTop:6}}>Получить с клиента: <span class="b">${fmt(act.price)}</span> (наличные)</p>
+   ${NEXT[act.status]?html`<${Btn} t=${NEXT[act.status][1]} onPress=${()=>call('driver_update_status',{p_order:act.id,p_status:NEXT[act.status][0]})}/>`
+    :html`<${Btn} t="Завершить поездку" onPress=${()=>call('complete_order',{p_order:act.id})}/>`}</div>`}
+  ${of&&!act&&html`<div class="card" style=${{border:'2px solid var(--navy)'}}><h2>Новый заказ · ${Math.max(0,Math.round((of.exp-now)/1000))} с</h2><${MapView} status="new"/><${Route} o=${of.o} pct=${pct}/>
+   <${Btn} t="Принять" onPress=${()=>call('accept_order',{p_order:of.o.id})}/><${Btn} kind="d" t="Отказать" onPress=${()=>call('decline_order',{p_order:of.o.id})}/></div>`}
+  ${online&&!act&&!of&&html`<p class="cen">Ищем заказы рядом…</p>`}
+  <${Btn} kind="s" t="Выйти из аккаунта" onPress=${()=>SB.auth.signOut()}/><//>`;
+}
+function Earn({uid}){
+ const [rows,setRows]=useState(null);
+ useEffect(()=>{SB.from('orders').select('*').eq('driver_id',uid).eq('status','completed').order().limit(300).then(r=>setRows((r.data||[]).slice().sort((a,b)=>new Date(b.completed_at)-new Date(a.completed_at))))},[uid]);
+ if(!rows)return html`<${Spin}/>`;
+ const t0=new Date();t0.setHours(0,0,0,0);const w0=new Date(t0);w0.setDate(w0.getDate()-6);const m0=new Date(t0);m0.setDate(1);
+ const sum=a=>a.reduce((x,o)=>x+Number(o.price)-Number(o.commission),0);
+ return html`<${Screen}>
+  ${[['Сегодня',t0],['7 дней',w0],['Этот месяц',m0]].map(([l,d])=>{const a=rows.filter(o=>new Date(o.completed_at)>=d);
+   return html`<div key=${l} class="card"><p>${l} · чистый заработок</p><h2>${fmt(sum(a))}</h2><p>Поездок: ${a.length}</p></div>`})}
+  <h2>Последние поездки</h2>${!rows.length&&html`<p>Поездок пока нет.</p>`}
+  ${rows.slice(0,20).map((o,i)=>html`<div key=${i} class="card"><p>${new Date(o.completed_at).toLocaleString('ru-RU')}</p>
+   <p>${o.pickup_address||'—'} → ${o.dropoff_address||'—'}</p><p class="b">${fmt(o.price)} · комиссия ${fmt(o.commission)}</p></div>`)}<//>`;
+}
+const TX={signup_bonus:'Бонус за регистрацию',referral_bonus:'Бонус за друга',commission:'Комиссия',topup:'Пополнение',adjustment:'Корректировка'};
+function Wallet({uid}){
+ const [w,setW]=useState({balance:0,bonus_balance:0}),[tx,setTx]=useState([]);
+ useEffect(()=>{SB.from('wallets').select('*').eq('user_id',uid).maybeSingle().then(r=>r.data&&setW({...r.data}));
+  SB.from('wallet_transactions').select('*').eq('user_id',uid).order().limit(30).then(r=>setTx([...(r.data||[])]))},[uid]);
+ return html`<${Screen}>
+  <div class="card"><p>Баланс (пополнение)</p><h2>${fmt(w.balance)}</h2><p>Бонус</p><h2>${fmt(w.bonus_balance)}</h2></div>
+  <div class="card"><h2>Пополнить</h2><p>Оплата через Payme и Click скоро. Сейчас баланс пополняет администратор Besh Express.</p>
+   <h2 style=${{marginTop:10}}>Вывод</h2><p>Наличные за поездки вы получаете от клиентов сами. С баланса списывается только комиссия. Бонус не выводится.</p></div>
+  <h2>История</h2>
+  ${tx.map(x=>html`<div key=${x.id} class="card row"><div><p class="b">${TX[x.type]||x.type}</p><p>${new Date(x.created_at).toLocaleString('ru-RU')}</p></div>
+   <span class="b" style=${{color:x.amount<0?'#B91C1C':'#15803D'}}>${x.amount>0?'+':''}${fmt(x.amount)}</span></div>`)}<//>`;
+}
+function Me({drv}){
+ const [n,setN]=useState('');
+ useEffect(()=>{SB.from('profiles').select('full_name').eq('id',drv.id).maybeSingle().then(r=>r.data&&setN(r.data.full_name||''))},[drv.id]);
+ const save=async()=>{const {error}=await SB.from('profiles').update({full_name:n}).eq('id',drv.id);alert(error?'Ошибка: '+error.message:'Сохранено')};
+ const R=[['Машина',drv.car_model+', '+drv.car_color],['Госномер',drv.plate],['Права',drv.license_no],['ПИНФЛ',drv.pinfl||'—'],
+  ['Карточка такси',(drv.license_card_no||'—')+' '+(drv.license_card_expiry||'')],['Рейтинг',drv.rating]];
+ return html`<${Screen}><p>Имя</p><${Field} value=${n} onInput=${x=>setN(x.target.value)} autocapitalize="words"/>
+  <${Btn} t="Сохранить имя" onPress=${save}/>
+  <div class="card" style=${{marginTop:14}}>${R.map(([a,b])=>html`<p key=${a}>${a}: <span class="b">${String(b)}</span></p>`)}</div>
+  <p>Чтобы изменить документы или машину, обратитесь к администратору.</p>
+  <${Btn} kind="s" t="Выйти из аккаунта" onPress=${()=>SB.auth.signOut()}/><//>`;
+}
+function Tabs({uid,drv}){
+ const [tab,setTab]=useState('home');
+ const T=[['home','Главная'],['earn','Заработок'],['wallet','Баланс'],['me','Профиль']];
+ return html`<div>
+  <div style=${{display:tab==='home'?'block':'none'}}><${Main} uid=${uid} drv=${drv}/></div>
+  ${tab==='earn'&&html`<${Earn} uid=${uid}/>`}${tab==='wallet'&&html`<${Wallet} uid=${uid}/>`}${tab==='me'&&html`<${Me} drv=${drv}/>`}
+  <div class="tabs">${T.map(([k,l])=>html`<button key=${k} class=${'tab'+(tab===k?' on':'')} onClick=${()=>setTab(k)}>${l}</button>`)}</div></div>`;
+}
+function App(){
+ const [s,setS]=useState(null),[ready,setReady]=useState(false),[drv,setDrv]=useState(undefined);
+ useEffect(()=>{SB.auth.getSession().then(({data})=>{setS(data.session);setReady(true)});
+  const {data}=SB.auth.onAuthStateChange((_e,x)=>setS(x));return()=>data.subscription.unsubscribe()},[]);
+ const loadDrv=useCallback(async()=>{if(!s)return setDrv(undefined);
+  const {data}=await SB.from('drivers').select('*').eq('id',s.user.id).maybeSingle();setDrv(data?{...data}:null)},[s]);
+ useEffect(()=>{loadDrv()},[loadDrv]);
+ if(!ready||(s&&drv===undefined))return html`<${Spin}/>`;
+ if(!s)return html`<${Auth}/>`;
+ if(drv===null)return html`<${CarForm} uid=${s.user.id} onDone=${loadDrv}/>`;
+ if(drv.status!=='approved')return html`<${Pending} drv=${drv} reload=${loadDrv}/>`;
+ return html`<${Tabs} uid=${s.user.id} drv=${drv}/>`;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+</script>
+</body>
+</html>
